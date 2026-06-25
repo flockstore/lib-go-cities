@@ -1,0 +1,31 @@
+# Data sources and generated exports
+*.json
+*.csv
+*.tsv
+
+# Agent workspaces and planning
+.codex/
+.claude/
+.cursor/
+.windsurf/
+plan/
+plans/
+
+# Go build output
+bin/
+dist/
+build/
+coverage.out
+*.test
+profiles/
+
+# IDE and editor state
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
