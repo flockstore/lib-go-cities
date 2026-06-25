@@ -2,23 +2,54 @@
 
 [![CI](https://github.com/flockstore/lib-go-cities/actions/workflows/ci.yml/badge.svg)](https://github.com/flockstore/lib-go-cities/actions/workflows/ci.yml)
 [![Package](https://github.com/flockstore/lib-go-cities/actions/workflows/package.yml/badge.svg)](https://github.com/flockstore/lib-go-cities/actions/workflows/package.yml)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/flockstore/lib-go-cities/releases)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/flockstore/lib-go-cities/releases)
+[![Coverage](https://img.shields.io/badge/coverage-%E2%89%A590%25-brightgreen.svg)](https://github.com/flockstore/lib-go-cities/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/flockstore/lib-go-cities.svg)](https://pkg.go.dev/github.com/flockstore/lib-go-cities)
 
-Version: `1.0.0`
+Version: `1.0.1`
 
-`lib-go-cities` is a fast, dependency-free Go library and CLI for validating and matching Colombian city text against a `cities.json` source compatible with [`flockstore/lib-cities-co`](https://github.com/flockstore/lib-cities-co).
+`lib-go-cities` is a dependency-free Go library and CLI for matching Colombian city text against a `cities.json` file compatible with [`flockstore/lib-cities-co`](https://github.com/flockstore/lib-cities-co).
 
-The goal is to help marketplaces, checkout flows, and carrier integrations handle free-text city inputs. Users often cannot choose from a fixed list, or carriers provide confusing destination names. This package gives applications a confidence score for what the user wrote and returns the city code to use when the score meets the configured threshold. If the score is below the threshold, the CLI returns a JSON response with `"no coincidences"`.
+Use it when users type city names manually and you need to decide which city code is safe to send to a carrier or marketplace integration. The matcher returns a confidence score and refuses to guess when the input is duplicated, ambiguous, incongruent, or below threshold.
+
+## What It Solves
+
+Users can write:
+
+- `Cali`
+- `Cali valle del cauca`
+- `Bucaramanga (Santander)`
+- `Santiago de Cali`
+- `Armenia`
+
+The first four can resolve to one city. `Armenia` is rejected unless department evidence is present because the source contains more than one Armenia.
 
 ## Install
 
+As a Go dependency:
+
 ```sh
-go get github.com/flockstore/lib-go-cities@v1.0.0
-go install github.com/flockstore/lib-go-cities/cmd/cities@v1.0.0
+go get github.com/flockstore/lib-go-cities@v1.0.1
 ```
 
-## CLI
+As a CLI:
+
+```sh
+go install github.com/flockstore/lib-go-cities/cmd/cities@v1.0.1
+```
+
+As a container from GHCR:
+
+```sh
+docker pull ghcr.io/flockstore/lib-go-cities:v1.0.1
+docker run --rm -v "$PWD/cities.json:/data/cities.json:ro" \
+  ghcr.io/flockstore/lib-go-cities:v1.0.1 \
+  -source /data/cities.json -city "Cali valle del cauca" -threshold 0.8
+```
+
+`cities.json` is not bundled in the binary or image. Provide it from your application, build pipeline, or local data source.
+
+## CLI Usage
 
 All CLI responses are JSON.
 
@@ -26,90 +57,31 @@ All CLI responses are JSON.
 cities -source ./cities.json -city "Bogota" -department "Cundinamarca" -threshold 0.80
 ```
 
-Successful match:
+Flags:
+
+- `-source`: JSON source path. Defaults to `cities.json`.
+- `-city`: required user city text.
+- `-department`: optional department text. This improves matching.
+- `-threshold`: required confidence from `0` to `1`. Defaults to `0.75`.
+
+Matched response:
 
 ```json
 {
   "matched": true,
-  "city": "Bogota, D.C.",
-  "department": "CUNDINAMARCA",
-  "code": "11001",
+  "city": "Cali",
+  "department": "VALLE DEL CAUCA",
+  "code": "76001",
   "delivery": 1,
   "extras": true,
-  "confidence": 0.98,
+  "confidence": 1,
   "threshold": 0.8,
   "source": "./cities.json",
-  "version": "1.0.0"
+  "version": "1.0.1"
 }
 ```
 
-No match:
-
-```json
-{
-  "matched": false,
-  "message": "no coincidences",
-  "reason": "LOW_THRESHOLD",
-  "threshold": 0.8,
-  "source": "./cities.json",
-  "version": "1.0.0"
-}
-```
-
-Flags:
-
-- `-city`: required city text to search.
-- `-department`: optional department text that improves matching.
-- `-threshold`: minimum confidence from `0` to `1`; defaults to `0.75`.
-- `-source`: JSON source path; defaults to `cities.json`.
-
-## Library
-
-```go
-import "github.com/flockstore/lib-go-cities/platform"
-
-matcher, err := platform.LoadFile("cities.json")
-if err != nil {
-	return err
-}
-
-match, found, err := matcher.Match(ctx, platform.SearchRequest{
-	City:       "Medellin",
-	Department: "Antioquia",
-	Threshold:  0.80,
-})
-if err != nil {
-	return err
-}
-if !found {
-	return nil
-}
-
-fmt.Println(match.City.Code)
-```
-
-For async callers:
-
-```go
-result := <-matcher.MatchAsync(ctx, platform.SearchRequest{City: "Cali"})
-```
-
-## Matching Strategy
-
-The matcher normalizes accents, punctuation, casing, and spacing before scoring. It also handles common noisy inputs where users write extra context in the city field:
-
-- `Santiago de Cali` can resolve to `Cali`.
-- `Cali valle del cauca` can resolve to `Cali` using the embedded department.
-- `Bucaramanga (Santander)` can resolve to `Bucaramanga` using the embedded department.
-
-When the matcher should not guess, it rejects the lookup with a machine-readable reason:
-
-- `LOW_THRESHOLD`: the best candidate did not meet the requested confidence.
-- `DUPLICATED`: the city name exists in multiple departments and no department evidence resolves it, for example `Armenia`.
-- `INCONGRUENT`: the city was recognized, but the provided or embedded department conflicts with known records.
-- `AMBIGUOUS`: multiple different cities are plausible at the same confidence.
-
-Rejected duplicate and ambiguous responses can include `suggestions`:
+Rejected response:
 
 ```json
 {
@@ -134,18 +106,92 @@ Rejected duplicate and ambiguous responses can include `suggestions`:
   ],
   "threshold": 0.8,
   "source": "./cities.json",
-  "version": "1.0.0"
+  "version": "1.0.1"
 }
 ```
 
+Rejection reasons:
+
+- `LOW_THRESHOLD`: the best candidate did not meet the requested confidence.
+- `DUPLICATED`: the city exists in multiple departments and no department evidence resolves it.
+- `INCONGRUENT`: city and department evidence conflict.
+- `AMBIGUOUS`: multiple different cities are plausible at the same confidence.
+
+## Library Usage
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/flockstore/lib-go-cities/platform"
+)
+
+func main() {
+	matcher, err := platform.LoadFile("cities.json")
+	if err != nil {
+		panic(err)
+	}
+
+	match, found, err := matcher.Match(context.Background(), platform.SearchRequest{
+		City:       "Medellin",
+		Department: "Antioquia",
+		Threshold:  0.80,
+	})
+	if err != nil {
+		panic(err)
+	}
+	if !found {
+		fmt.Println(match.Reason)
+		return
+	}
+
+	fmt.Println(match.City.Code)
+}
+```
+
+`LoadFile` reads and closes the JSON file during loading. Matching does not keep the file open.
+
+For async callers:
+
+```go
+result := <-matcher.MatchAsync(ctx, platform.SearchRequest{City: "Cali"})
+```
+
+## Source Data
+
+JSON and CSV files are intentionally ignored by git. Keep `cities.json` local, generated, or supplied by your application pipeline.
+
+Expected JSON shape:
+
+```json
+[
+  {
+    "code": "11001",
+    "name": "Bogota, D.C.",
+    "normalized": "Bogota, D.C.",
+    "department": "CUNDINAMARCA",
+    "delivery": 1,
+    "extras": true
+  }
+]
+```
+
+`code` can be a JSON string or number. The library keeps it as a string so leading zeros are not lost.
+
 ## Testing And Benchmarks
 
-Run the full test suite:
+Run tests, vet, and coverage:
 
 ```sh
-go test ./...
+go test ./... -covermode=atomic -coverprofile=coverage.out
+go tool cover -func=coverage.out | tail -n 1
 go vet ./...
 ```
+
+CI enforces at least `90%` total coverage.
 
 Run real-source regression tests and benchmarks. These use local `cities.json` when it is present and skip cleanly without it:
 
@@ -168,26 +214,17 @@ go tool pprof -top -alloc_space profiles/mem-miss.pprof
 Representative local results on Apple M4 Pro with the current `cities.json`:
 
 ```text
-BenchmarkMatchRealExactWithDepartment    ~560 ns/op     ~715 B/op   11 allocs/op
-BenchmarkMatchRealEmbeddedDepartment     ~555 ns/op     ~796 B/op   10 allocs/op
-BenchmarkMatchRealKnownEdges             ~770 ns/op    ~1034 B/op   11 allocs/op
-BenchmarkMatchRealMisses                 ~221 us/op     ~285 B/op    5 allocs/op
-BenchmarkMatchRealParallel               ~360 ns/op     ~715 B/op   11 allocs/op
+BenchmarkMatchRealExactWithDepartment    ~584 ns/op     ~715 B/op   11 allocs/op
+BenchmarkMatchRealEmbeddedDepartment     ~571 ns/op     ~796 B/op   10 allocs/op
+BenchmarkMatchRealKnownEdges             ~783 ns/op    ~1034 B/op   11 allocs/op
+BenchmarkMatchRealMisses                 ~224 us/op     ~285 B/op    5 allocs/op
+BenchmarkMatchRealParallel               ~341 ns/op     ~715 B/op   11 allocs/op
 ```
 
-## Source Data
+## Publishing
 
-JSON and CSV files are intentionally ignored by git. Keep `cities.json` local, generated, or supplied by your application pipeline. The expected JSON shape is:
+On every commit to `main`, GitHub Actions:
 
-```json
-[
-  {
-    "code": "11001",
-    "name": "Bogota, D.C.",
-    "normalized": "Bogota, D.C.",
-    "department": "CUNDINAMARCA",
-    "delivery": 1,
-    "extras": true
-  }
-]
-```
+- runs formatting, tests, coverage, vet, and CLI compile checks;
+- uploads CLI binaries for Linux, macOS, and Windows as workflow artifacts;
+- publishes the CLI container to `ghcr.io/flockstore/lib-go-cities` with `latest`, `v1.0.1`, and commit SHA tags.

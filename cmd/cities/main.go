@@ -129,7 +129,7 @@ func writeJSON(writer io.Writer, response cliResponse) {
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(response); err != nil {
-		fmt.Fprintf(writer, `{"matched":false,"message":%q}`+"\n", err.Error())
+		_, _ = fmt.Fprintf(writer, `{"matched":false,"message":%q}`+"\n", err.Error())
 	}
 }
 

@@ -4,7 +4,7 @@ package platform
 import "encoding/json"
 
 // Version identifies the public package and CLI version.
-const Version = "1.0.0"
+const Version = "1.0.1"
 
 // DefaultThreshold is the recommended minimum confidence for callers and the CLI.
 const DefaultThreshold = 0.75

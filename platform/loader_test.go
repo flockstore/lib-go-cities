@@ -1,6 +1,8 @@
 package platform
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -32,5 +34,38 @@ func TestLoadReaderRejectsEmptySource(t *testing.T) {
 	_, err := LoadReader("empty", strings.NewReader(`[]`))
 	if err == nil {
 		t.Fatal("LoadReader() error = nil")
+	}
+}
+
+func TestLoadFileReadsAndClosesSource(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cities.json")
+	data := `[{"code":11001,"name":"Bogota","department":"CUNDINAMARCA","delivery":1}]`
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	matcher, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile() error = %v", err)
+	}
+	if matcher.Source() != path {
+		t.Fatalf("Source() = %q", matcher.Source())
+	}
+	if err := os.Rename(path, path+".moved"); err != nil {
+		t.Fatalf("source file still appears held open: %v", err)
+	}
+}
+
+func TestLoadFileRejectsMissingSource(t *testing.T) {
+	_, err := LoadFile(filepath.Join(t.TempDir(), "missing.json"))
+	if err == nil {
+		t.Fatal("LoadFile() error = nil")
+	}
+}
+
+func TestLoadBytesRejectsBadJSON(t *testing.T) {
+	_, err := LoadBytes("bad", []byte(`{"bad":`))
+	if err == nil {
+		t.Fatal("LoadBytes() error = nil")
 	}
 }

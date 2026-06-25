@@ -30,10 +30,23 @@ jobs:
         run: test -z "$(gofmt -l .)"
 
       - name: Test
-        run: go test ./...
+        run: go test ./... -covermode=atomic -coverprofile=coverage.out
 
       - name: Vet
         run: go vet ./...
+
+      - name: Check coverage
+        run: |
+          total="$(go tool cover -func=coverage.out | awk '/^total:/ {print substr($3, 1, length($3)-1)}')"
+          awk -v total="${total}" 'BEGIN { if (total < 90) exit 1 }'
+          echo "coverage=${total}%"
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+          if-no-files-found: error
 
       - name: Build CLI
         run: go build -o /tmp/cities ./cmd/cities

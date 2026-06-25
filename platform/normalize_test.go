@@ -16,3 +16,12 @@ func TestTextScoreMatchesContainedCity(t *testing.T) {
 		t.Fatalf("textScore() = %f, want at least 0.9", got)
 	}
 }
+
+func TestTextScoreHandlesEmptyAndFuzzyValues(t *testing.T) {
+	if got := textScore("", "bogota"); got != 0 {
+		t.Fatalf("empty textScore() = %f", got)
+	}
+	if got := textScore("bogta", "bogota"); got <= 0.55 {
+		t.Fatalf("fuzzy textScore() = %f", got)
+	}
+}

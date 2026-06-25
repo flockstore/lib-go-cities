@@ -57,6 +57,38 @@ func TestMatchAsyncReturnsResult(t *testing.T) {
 	}
 }
 
+func TestMatchRejectsInvalidInput(t *testing.T) {
+	matcher := NewMatcher("test", []City{{Code: "1", Name: "Cali", Department: "VALLE DEL CAUCA"}})
+
+	if _, _, err := matcher.Match(context.Background(), SearchRequest{}); err == nil {
+		t.Fatal("Match() empty city error = nil")
+	}
+	if _, _, err := matcher.Match(context.Background(), SearchRequest{City: "Cali", Threshold: 2}); err == nil {
+		t.Fatal("Match() threshold error = nil")
+	}
+}
+
+func TestMatchHonorsContextCancellation(t *testing.T) {
+	matcher := NewMatcher("test", []City{{Code: "1", Name: "Cali", Department: "VALLE DEL CAUCA"}})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, _, err := matcher.Match(ctx, SearchRequest{City: "unknown", Threshold: 0.9})
+	if err == nil {
+		t.Fatal("Match() context error = nil")
+	}
+}
+
+func TestCitiesReturnsCopy(t *testing.T) {
+	matcher := NewMatcher("test", []City{{Code: "1", Name: "Cali", Department: "VALLE DEL CAUCA"}})
+	cities := matcher.Cities()
+	cities[0].Code = "changed"
+
+	if matcher.Cities()[0].Code != "1" {
+		t.Fatal("Cities() returned mutable backing data")
+	}
+}
+
 func TestMatchRejectsDuplicatedCityWithoutDepartment(t *testing.T) {
 	matcher := NewMatcher("test", []City{
 		{Code: "05059", Name: "Armenia", Normalized: "Armenia", Department: "ANTIOQUIA"},
