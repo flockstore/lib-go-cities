@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,5 +68,12 @@ func TestLoadBytesRejectsBadJSON(t *testing.T) {
 	_, err := LoadBytes("bad", []byte(`{"bad":`))
 	if err == nil {
 		t.Fatal("LoadBytes() error = nil")
+	}
+}
+
+func TestCodeRejectsInvalidJSON(t *testing.T) {
+	var code Code
+	if err := json.Unmarshal([]byte(`true`), &code); err == nil {
+		t.Fatal("Code.UnmarshalJSON() error = nil")
 	}
 }

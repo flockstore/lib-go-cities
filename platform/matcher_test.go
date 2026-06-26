@@ -89,6 +89,34 @@ func TestCitiesReturnsCopy(t *testing.T) {
 	}
 }
 
+func TestMatchHandlesTopCandidateOverflow(t *testing.T) {
+	matcher := NewMatcher("test", []City{
+		{Code: "1", Name: "Santa Rosa", Department: "BOLIVAR"},
+		{Code: "2", Name: "Santa Maria", Department: "BOYACA"},
+		{Code: "3", Name: "Santa Marta", Department: "MAGDALENA"},
+		{Code: "4", Name: "Santa Barbara", Department: "ANTIOQUIA"},
+		{Code: "5", Name: "Santa Ana", Department: "MAGDALENA"},
+		{Code: "6", Name: "Santander", Department: "SANTANDER"},
+	})
+
+	match, found, err := matcher.Match(context.Background(), SearchRequest{
+		City:      "Santa",
+		Threshold: 0.8,
+	})
+	if err != nil {
+		t.Fatalf("Match() error = %v", err)
+	}
+	if found {
+		t.Fatal("Match() found = true")
+	}
+	if match.Reason != ReasonAmbiguous {
+		t.Fatalf("Match() reason = %q", match.Reason)
+	}
+	if len(match.Suggestions) != 5 {
+		t.Fatalf("len(Suggestions) = %d", len(match.Suggestions))
+	}
+}
+
 func TestMatchRejectsDuplicatedCityWithoutDepartment(t *testing.T) {
 	matcher := NewMatcher("test", []City{
 		{Code: "05059", Name: "Armenia", Normalized: "Armenia", Department: "ANTIOQUIA"},

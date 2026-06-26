@@ -3,8 +3,8 @@ package platform
 import "testing"
 
 func TestNormalizeFoldsAccentsAndSpacing(t *testing.T) {
-	got := Normalize("  Puerto  Nariño, D.C. ")
-	want := "puerto narino d c"
+	got := Normalize("  ÁÀÂÄÃ ÉÈÊË ÍÌÎÏ ÓÒÔÖÕ ÚÙÛÜ Ñ Puerto  Nariño, D.C. ")
+	want := "aaaaa eeee iiii ooooo uuuu n puerto narino d c"
 	if got != want {
 		t.Fatalf("Normalize() = %q, want %q", got, want)
 	}
@@ -23,5 +23,17 @@ func TestTextScoreHandlesEmptyAndFuzzyValues(t *testing.T) {
 	}
 	if got := textScore("bogta", "bogota"); got <= 0.55 {
 		t.Fatalf("fuzzy textScore() = %f", got)
+	}
+}
+
+func TestTextHelpersHandleEdgeCases(t *testing.T) {
+	if got := tokenOverlap(nil, []string{"bogota"}); got != 0 {
+		t.Fatalf("tokenOverlap(nil) = %f", got)
+	}
+	if got := distance("", "cali"); got != 4 {
+		t.Fatalf("distance(empty, cali) = %d", got)
+	}
+	if got := distance("cali", ""); got != 4 {
+		t.Fatalf("distance(cali, empty) = %d", got)
 	}
 }
